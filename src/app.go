@@ -1,18 +1,16 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"text/template"
 
 	"./plugs"
 
 	"github.com/gorilla/mux"
-	databox "github.com/me-box/lib-go-databox"
+	databox "github.com/toshbrown/lib-go-databox"
 )
 
 var dataStoreHref = os.Getenv("DATABOX_STORE_ENDPOINT")
@@ -67,10 +65,29 @@ type actuationRequest struct {
 	ID           string `json:"_id"`
 }
 
+var DATABOX_ZMQ_ENDPOINT = os.Getenv("DATABOX_ZMQ_ENDPOINT")
+
 func main() {
 
+	fmt.Println("DATABOX_ZMQ_ENDPOINT", DATABOX_ZMQ_ENDPOINT)
+	kvc, err := databox.NewKeyValueClient(DATABOX_ZMQ_ENDPOINT, true)
+	if err != nil {
+		fmt.Println("Error creating zest client", err)
+	}
+
+	writeErr := kvc.Write("/kv/tosh", "{\"hello\":\"world\"}")
+	if writeErr != nil {
+		fmt.Println("Error setting state ", writeErr)
+	}
+
+	data, readErr := kvc.Read("/kv/tosh")
+	if readErr != nil {
+		fmt.Println("Error setting state ", readErr)
+	}
+	fmt.Println("Got Data:: ", data)
+
 	//Wait for my store to become active
-	databox.WaitForStoreStatus(dataStoreHref)
+	//databox.WaitForStoreStatus(dataStoreHref)
 
 	//start the plug handler it scans for new plugs and polls for data
 	go plugs.PlugHandler()
@@ -78,7 +95,7 @@ func main() {
 	go plugs.ForceScan()
 
 	//actuation
-	actuationChan, err := databox.WSConnect(dataStoreHref)
+	/*actuationChan, err := databox.WSConnect(dataStoreHref)
 	if err == nil {
 
 		go func(actuationRequestChan chan []byte) {
@@ -105,7 +122,7 @@ func main() {
 
 	} else {
 		fmt.Println("Error connecting to websocket for actuation", err)
-	}
+	}*/
 
 	//
 	// Handel Https requests

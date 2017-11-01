@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	databox "github.com/me-box/lib-go-databox"
 	"github.com/sausheong/hs1xxplug"
+	databox "github.com/toshbrown/lib-go-databox"
 )
 
 var store_endpoint = os.Getenv("DATABOX_STORE_ENDPOINT")
