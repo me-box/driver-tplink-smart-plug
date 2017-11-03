@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"text/template"
+	"time"
 
 	"./plugs"
 
@@ -75,16 +76,86 @@ func main() {
 		fmt.Println("Error creating zest client", err)
 	}
 
-	writeErr := kvc.Write("/kv/tosh", "{\"hello\":\"world\"}")
+	metadata := databox.StoreMetadata{
+		Description:    "Test data source",
+		ContentType:    "text/json",
+		Vendor:         "tosh",
+		DataSourceType: "toshTest",
+		DataSourceID:   "tosh",
+		StoreType:      "store-core",
+		IsActuator:     false,
+		Unit:           "Kg",
+		Location:       "",
+	}
+	kvc.RegisterDatasource("toshTest", metadata)
+
+	payloadChan, obsErr := kvc.Observe("toshTest")
+	if obsErr != nil {
+		fmt.Println("Error setting state:: ", obsErr)
+	} else {
+		go func(payload <-chan string) {
+			for {
+				fmt.Println("Waiting for data .........")
+				fmt.Println("Observe Got Data:: ", <-payload)
+				fmt.Println("Done waiting  for data .........")
+			}
+		}(payloadChan)
+	}
+
+	writeErr := kvc.Write("toshTest", "{\"hello\":\"world\"}")
 	if writeErr != nil {
 		fmt.Println("Error setting state ", writeErr)
 	}
 
-	data, readErr := kvc.Read("/kv/tosh")
-	if readErr != nil {
-		fmt.Println("Error setting state ", readErr)
+	kvc.Write("toshTest", "{\"hello\":\"world2\"}")
+
+	kvc.Write("toshTest", "{\"hello\":\"world3\"}")
+
+	//data, readErr := kvc.Read("tosh")
+	//if readErr != nil {
+	//	fmt.Println("Error setting state ", readErr)
+	//}
+	//fmt.Println("Got Data:: ", data)
+
+	tsc, err1 := databox.NewTimeSeriesClient(DATABOX_ZMQ_ENDPOINT, false)
+	if err1 != nil {
+		fmt.Println("Error creating zest client", err1)
 	}
-	fmt.Println("Got Data:: ", data)
+
+	metadata = databox.StoreMetadata{
+		Description:    "Test data source",
+		ContentType:    "text/json",
+		Vendor:         "tosh",
+		DataSourceType: "toshTest",
+		DataSourceID:   "tosh",
+		StoreType:      "store-core",
+		IsActuator:     false,
+		Unit:           "Kg",
+		Location:       "",
+	}
+	tsc.RegisterDatasource("toshTest", metadata)
+
+	writeErr1 := tsc.Write("tosh", "{\"hello\":\"ts world\"}")
+	if writeErr1 != nil {
+		fmt.Println("Error setting state ", writeErr1)
+	}
+
+	data1, readErr1 := tsc.Latest("tosh")
+	if readErr1 != nil {
+		fmt.Println("Error setting state ", readErr1)
+	}
+	fmt.Println("Got Data:: ", data1)
+
+	writeErr2 := tsc.WriteAt("tosh", (time.Now().UnixNano()+10000)/1000000, "{\"hello\":\"ts world 2\"}")
+	if writeErr2 != nil {
+		fmt.Println("Error setting state ", writeErr2)
+	}
+
+	data2, readErr2 := tsc.Latest("tosh")
+	if readErr2 != nil {
+		fmt.Println("Error setting state ", readErr2)
+	}
+	fmt.Println("Got Data:: ", data2)
 
 	//Wait for my store to become active
 	//databox.WaitForStoreStatus(dataStoreHref)

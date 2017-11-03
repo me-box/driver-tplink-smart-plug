@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/sausheong/hs1xxplug"
-	databox "github.com/toshbrown/lib-go-databox"
 )
 
 var store_endpoint = os.Getenv("DATABOX_STORE_ENDPOINT")
@@ -68,12 +67,12 @@ func updateReadings() {
 			fmt.Println("Error unmarshing")
 		}
 		fmt.Println("Sending 1 Realtime::", p.ID, string(jsonString))
-		sendErr := databox.StoreJSONWriteTS(store_endpoint+"/"+macToID(res.System.Mac), "{\"data\":"+string(jsonString)+"}")
-		if err != sendErr {
-			fmt.Println("Error StoreJSONWriteTS", sendErr)
-		}
-		jsonString, _ = json.Marshal(res.System.RelayState)
-		databox.StoreJSONWriteTS(store_endpoint+"/"+"state-"+macToID(res.System.Mac), "{\"data\":"+string(jsonString)+"}")
+		//		sendErr := databox.StoreJSONWriteTS(store_endpoint+"/"+macToID(res.System.Mac), "{\"data\":"+string(jsonString)+"}")
+		//		if err != sendErr {
+		//			fmt.Println("Error StoreJSONWriteTS", sendErr)
+		//		}
+		//		jsonString, _ = json.Marshal(res.System.RelayState)
+		//		databox.StoreJSONWriteTS(store_endpoint+"/"+"state-"+macToID(res.System.Mac), "{\"data\":"+string(jsonString)+"}")
 	}
 
 	fmt.Println("Done Updating plugs!! -> ", len(plugList))
@@ -123,7 +122,7 @@ func scanForPlugs() {
 
 func registerPlugWithDatabox(p plug) {
 
-	metadata := databox.StoreMetadata{
+	/*metadata := databox.StoreMetadata{
 		Description:    "TP-Link Wi-Fi Smart Plug HS100 power usage",
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
@@ -134,7 +133,8 @@ func registerPlugWithDatabox(p plug) {
 		Unit:           "",
 		Location:       "",
 	}
-	databox.RegisterDatasource(store_endpoint, metadata)
+
+	//	databox.RegisterDatasource(store_endpoint, metadata)
 
 	metadata = databox.StoreMetadata{
 		Description:    "TP-Link Wi-Fi Smart Plug HS100 power state",
@@ -147,7 +147,7 @@ func registerPlugWithDatabox(p plug) {
 		Unit:           "",
 		Location:       "",
 	}
-	databox.RegisterDatasource(store_endpoint, metadata)
+	//	databox.RegisterDatasource(store_endpoint, metadata)
 
 	metadata = databox.StoreMetadata{
 		Description:    "TP-Link Wi-Fi Smart Plug HS100 set power state",
@@ -160,16 +160,16 @@ func registerPlugWithDatabox(p plug) {
 		Unit:           "",
 		Location:       "",
 	}
-	databox.RegisterDatasource(store_endpoint, metadata)
+	//	databox.RegisterDatasource(store_endpoint, metadata)
 
 	//subscribe for events on the setState actuator
 	fmt.Println("Subscribing for update on ", "setState-"+p.ID)
-	res, err := databox.WSSubscribe(store_endpoint+"/"+"setState-"+p.ID, "ts")
-	if err != nil {
-		fmt.Println("Error subscribing for update on ", "setState-"+p.ID, err)
-	} else {
-		fmt.Println("Success subscribing for update on ", "setState-"+p.ID, res)
-	}
+	//	res, err := databox.WSSubscribe(store_endpoint+"/"+"setState-"+p.ID, "ts")
+	//	if err != nil {
+	//		fmt.Println("Error subscribing for update on ", "setState-"+p.ID, err)
+	//	} else {
+	//		fmt.Println("Success subscribing for update on ", "setState-"+p.ID, res)
+	//	}*/
 }
 
 // SetScanSubNet is used to set the subnet to scan for new plugs
