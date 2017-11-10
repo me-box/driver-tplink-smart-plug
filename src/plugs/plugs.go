@@ -29,7 +29,7 @@ var plugList = make(map[string]plug)
 
 func PlugHandler() {
 
-	tsc, err1 := databox.NewJSONTimeSeriesClient(DATABOX_ZMQ_ENDPOINT, true)
+	tsc, err1 := databox.NewJSONTimeSeriesClient(DATABOX_ZMQ_ENDPOINT, false)
 	if err1 != nil {
 		fmt.Println("Error creating zest client", err1)
 	}
