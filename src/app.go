@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"text/template"
-	"time"
 
 	"./plugs"
 
@@ -71,94 +70,11 @@ var DATABOX_ZMQ_ENDPOINT = os.Getenv("DATABOX_ZMQ_ENDPOINT")
 func main() {
 
 	fmt.Println("DATABOX_ZMQ_ENDPOINT", DATABOX_ZMQ_ENDPOINT)
-	kvc, err := databox.NewKeyValueClient(DATABOX_ZMQ_ENDPOINT, true)
-	if err != nil {
-		fmt.Println("Error creating zest client", err)
-	}
 
-	metadata := databox.StoreMetadata{
-		Description:    "Test data source",
-		ContentType:    "text/json",
-		Vendor:         "tosh",
-		DataSourceType: "toshTest",
-		DataSourceID:   "tosh",
-		StoreType:      "store-core",
-		IsActuator:     false,
-		Unit:           "Kg",
-		Location:       "",
-	}
-	kvc.RegisterDatasource("toshTest", metadata)
-
-	payloadChan, obsErr := kvc.Observe("toshTest")
-	if obsErr != nil {
-		fmt.Println("Error setting state:: ", obsErr)
-	} else {
-		go func(payload <-chan string) {
-			for {
-				fmt.Println("Waiting for data .........")
-				fmt.Println("Observe Got Data:: ", <-payload)
-				fmt.Println("Done waiting  for data .........")
-			}
-		}(payloadChan)
-	}
-
-	writeErr := kvc.Write("toshTest", "{\"hello\":\"world\"}")
-	if writeErr != nil {
-		fmt.Println("Error setting state ", writeErr)
-	}
-
-	kvc.Write("toshTest", "{\"hello\":\"world2\"}")
-
-	kvc.Write("toshTest", "{\"hello\":\"world3\"}")
-
-	//data, readErr := kvc.Read("tosh")
-	//if readErr != nil {
-	//	fmt.Println("Error setting state ", readErr)
-	//}
-	//fmt.Println("Got Data:: ", data)
-
-	tsc, err1 := databox.NewTimeSeriesClient(DATABOX_ZMQ_ENDPOINT, false)
+	/*tsc, err1 := databox.NewJSONTimeSeriesClient(DATABOX_ZMQ_ENDPOINT, true)
 	if err1 != nil {
 		fmt.Println("Error creating zest client", err1)
-	}
-
-	metadata = databox.StoreMetadata{
-		Description:    "Test data source",
-		ContentType:    "text/json",
-		Vendor:         "tosh",
-		DataSourceType: "toshTest",
-		DataSourceID:   "tosh",
-		StoreType:      "store-core",
-		IsActuator:     false,
-		Unit:           "Kg",
-		Location:       "",
-	}
-	tsc.RegisterDatasource("toshTest", metadata)
-
-	writeErr1 := tsc.Write("tosh", "{\"hello\":\"ts world\"}")
-	if writeErr1 != nil {
-		fmt.Println("Error setting state ", writeErr1)
-	}
-
-	data1, readErr1 := tsc.Latest("tosh")
-	if readErr1 != nil {
-		fmt.Println("Error setting state ", readErr1)
-	}
-	fmt.Println("Got Data:: ", data1)
-
-	writeErr2 := tsc.WriteAt("tosh", (time.Now().UnixNano()+10000)/1000000, "{\"hello\":\"ts world 2\"}")
-	if writeErr2 != nil {
-		fmt.Println("Error setting state ", writeErr2)
-	}
-
-	data2, readErr2 := tsc.Latest("tosh")
-	if readErr2 != nil {
-		fmt.Println("Error setting state ", readErr2)
-	}
-	fmt.Println("Got Data:: ", data2)
-
-	//Wait for my store to become active
-	//databox.WaitForStoreStatus(dataStoreHref)
+	}*/
 
 	//start the plug handler it scans for new plugs and polls for data
 	go plugs.PlugHandler()
@@ -198,6 +114,7 @@ func main() {
 	//
 	// Handel Https requests
 	//
+
 	router := mux.NewRouter()
 
 	router.HandleFunc("/status", getStatusEndpoint).Methods("GET")

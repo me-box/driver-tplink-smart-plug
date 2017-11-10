@@ -58,3 +58,14 @@ type Reading struct {
 		} `json:"get_vgain_igain"`
 	} `json:"emeter"`
 }
+
+type data struct {
+	Data string `json:"data"`
+}
+
+type actuationRequest struct {
+	DatasourceID string `json:"datasource_id"`
+	Data         data   `json:"data"`
+	Timestamp    int64  `json:"timestamp"`
+	ID           string `json:"_id"`
+}

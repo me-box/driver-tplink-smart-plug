@@ -11,9 +11,10 @@ import (
 	"time"
 
 	"github.com/sausheong/hs1xxplug"
+	databox "github.com/toshbrown/lib-go-databox"
 )
 
-var store_endpoint = os.Getenv("DATABOX_STORE_ENDPOINT")
+var DATABOX_ZMQ_ENDPOINT = os.Getenv("DATABOX_ZMQ_ENDPOINT")
 
 //Some timers and comms channels
 var getDataChan = time.NewTicker(time.Second * 10).C
@@ -28,23 +29,28 @@ var plugList = make(map[string]plug)
 
 func PlugHandler() {
 
+	tsc, err1 := databox.NewJSONTimeSeriesClient(DATABOX_ZMQ_ENDPOINT, true)
+	if err1 != nil {
+		fmt.Println("Error creating zest client", err1)
+	}
+
 	for {
 		select {
 		case <-getDataChan:
 			fmt.Println("Updating plugs!! -> ", len(plugList))
-			go updateReadings()
+			go updateReadings(tsc)
 		case <-scanForNewPlugsChan:
 			fmt.Println("Scanning for plugs!!")
 			go scanForPlugs()
 		case p := <-newPlugFoundChan:
 			fmt.Println("New Plug Found!!")
 			plugList[p.IP] = p
-			go registerPlugWithDatabox(p)
+			go registerPlugWithDatabox(p, tsc)
 		}
 	}
 }
 
-func updateReadings() {
+func updateReadings(tsc databox.JSONTimeSeries_0_2_0) {
 
 	resChan := make(chan *Reading)
 
@@ -66,13 +72,17 @@ func updateReadings() {
 		if err != nil {
 			fmt.Println("Error unmarshing")
 		}
-		fmt.Println("Sending 1 Realtime::", p.ID, string(jsonString))
-		//		sendErr := databox.StoreJSONWriteTS(store_endpoint+"/"+macToID(res.System.Mac), "{\"data\":"+string(jsonString)+"}")
-		//		if err != sendErr {
-		//			fmt.Println("Error StoreJSONWriteTS", sendErr)
-		//		}
-		//		jsonString, _ = json.Marshal(res.System.RelayState)
-		//		databox.StoreJSONWriteTS(store_endpoint+"/"+"state-"+macToID(res.System.Mac), "{\"data\":"+string(jsonString)+"}")
+		fmt.Println("Writing 1 Realtime::", p.ID, string(jsonString))
+		err = tsc.Write(macToID(res.System.Mac), jsonString)
+		if err != nil {
+			fmt.Println("Error StoreJSONWriteTS", err)
+		}
+
+		jsonString, _ = json.Marshal(res.System.RelayState)
+		err = tsc.Write("state-"+macToID(res.System.Mac), jsonString)
+		if err != nil {
+			fmt.Println("Error StoreJSONWriteTS", err)
+		}
 	}
 
 	fmt.Println("Done Updating plugs!! -> ", len(plugList))
@@ -120,9 +130,9 @@ func scanForPlugs() {
 
 }
 
-func registerPlugWithDatabox(p plug) {
+func registerPlugWithDatabox(p plug, tsc databox.JSONTimeSeries_0_2_0) {
 
-	/*metadata := databox.StoreMetadata{
+	metadata := databox.DataSourceMetadata{
 		Description:    "TP-Link Wi-Fi Smart Plug HS100 power usage",
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
@@ -134,9 +144,9 @@ func registerPlugWithDatabox(p plug) {
 		Location:       "",
 	}
 
-	//	databox.RegisterDatasource(store_endpoint, metadata)
+	tsc.RegisterDatasource(metadata)
 
-	metadata = databox.StoreMetadata{
+	metadata = databox.DataSourceMetadata{
 		Description:    "TP-Link Wi-Fi Smart Plug HS100 power state",
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
@@ -147,9 +157,9 @@ func registerPlugWithDatabox(p plug) {
 		Unit:           "",
 		Location:       "",
 	}
-	//	databox.RegisterDatasource(store_endpoint, metadata)
+	tsc.RegisterDatasource(metadata)
 
-	metadata = databox.StoreMetadata{
+	metadata = databox.DataSourceMetadata{
 		Description:    "TP-Link Wi-Fi Smart Plug HS100 set power state",
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
@@ -160,16 +170,37 @@ func registerPlugWithDatabox(p plug) {
 		Unit:           "",
 		Location:       "",
 	}
-	//	databox.RegisterDatasource(store_endpoint, metadata)
+	tsc.RegisterDatasource(metadata)
 
 	//subscribe for events on the setState actuator
 	fmt.Println("Subscribing for update on ", "setState-"+p.ID)
-	//	res, err := databox.WSSubscribe(store_endpoint+"/"+"setState-"+p.ID, "ts")
-	//	if err != nil {
-	//		fmt.Println("Error subscribing for update on ", "setState-"+p.ID, err)
-	//	} else {
-	//		fmt.Println("Success subscribing for update on ", "setState-"+p.ID, res)
-	//	}*/
+	actuationChan, err := tsc.Observe("setState-" + p.ID)
+	if err == nil {
+		go func(actuationRequestChan <-chan []byte) {
+			for {
+				//blocks util request received
+				request := <-actuationRequestChan
+				fmt.Println("Got Actuation Request", string(request[:]))
+				ar := actuationRequest{}
+				err1 := json.Unmarshal(request, &ar)
+				if err == nil {
+					state := 1
+					if ar.Data.Data == "off" {
+						state = 0
+					}
+					err2 := SetPowerState(strings.Replace(ar.DatasourceID, "setState-", "", -1), state)
+					if err2 != nil {
+						fmt.Println("Error setting state ", err2)
+					}
+				} else {
+					fmt.Println("Error parsing json ", err1)
+				}
+			}
+		}(actuationChan)
+	} else {
+		fmt.Println("Error registering for Observe on " + "setState-" + p.ID)
+	}
+
 }
 
 // SetScanSubNet is used to set the subnet to scan for new plugs
