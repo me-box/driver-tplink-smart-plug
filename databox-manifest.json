@@ -3,7 +3,7 @@
 
 	"name": "driver-tplink-smart-plug",
 	"databox-type": "driver",
-	"version": "0.1.0",
+	"version": "0.3.0",
 
 	"description": "An driver for tplink smart plugs.",
 	"author": "Tosh Brown <Anthony.Brown@nottingham.ac.uk>",
