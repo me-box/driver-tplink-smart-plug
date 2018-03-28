@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	databox "github.com/me-box/lib-go-databox"
 	"github.com/sausheong/hs1xxplug"
-	databox "github.com/toshbrown/lib-go-databox"
 )
 
 var DATABOX_ZMQ_ENDPOINT = os.Getenv("DATABOX_ZMQ_ENDPOINT")
@@ -29,7 +29,7 @@ var plugList = make(map[string]plug)
 
 func PlugHandler() {
 
-	tsc, err1 := databox.NewJSONTimeSeriesClient(DATABOX_ZMQ_ENDPOINT, false)
+	tsc, err1 := databox.NewJSONTimeSeriesBlobClient(DATABOX_ZMQ_ENDPOINT, false)
 	if err1 != nil {
 		fmt.Println("Error creating zest client", err1)
 	}
@@ -50,7 +50,7 @@ func PlugHandler() {
 	}
 }
 
-func updateReadings(tsc databox.JSONTimeSeries_0_2_0) {
+func updateReadings(tsc databox.JSONTimeSeriesBlob_0_3_0) {
 
 	resChan := make(chan *Reading)
 
@@ -137,7 +137,7 @@ func scanForPlugs() {
 
 }
 
-func registerPlugWithDatabox(p plug, tsc databox.JSONTimeSeries_0_2_0) {
+func registerPlugWithDatabox(p plug, tsc databox.JSONTimeSeriesBlob_0_3_0) {
 
 	metadata := databox.DataSourceMetadata{
 		Description:    "TP-Link Wi-Fi Smart Plug HS100 power usage",
@@ -183,13 +183,13 @@ func registerPlugWithDatabox(p plug, tsc databox.JSONTimeSeries_0_2_0) {
 	fmt.Println("Subscribing for update on ", "setState-"+p.ID)
 	actuationChan, err := tsc.Observe("setState-" + p.ID)
 	if err == nil {
-		go func(actuationRequestChan <-chan []byte) {
+		go func(actuationRequestChan <-chan databox.JsonObserveResponse) {
 			for {
 				//blocks util request received
 				request := <-actuationRequestChan
-				fmt.Println("Got Actuation Request", string(request[:]))
+				fmt.Println("Got Actuation Request", string(request.Json[:]))
 				ar := actuationRequest{}
-				err1 := json.Unmarshal(request, &ar)
+				err1 := json.Unmarshal(request.Json, &ar)
 				if err == nil {
 					state := 1
 					if ar.Data == "off" {
