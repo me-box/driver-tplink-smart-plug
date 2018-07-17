@@ -22,7 +22,7 @@
 
 
 	"resource-requirements": {
-		"store": ["core-store"]
+		"store": "core-store"
 	}
 
 }

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	databox "github.com/me-box/lib-go-databox"
 	"github.com/sausheong/hs1xxplug"
+	databox "github.com/toshbrown/lib-go-databox"
 )
 
 var DATABOX_ZMQ_ENDPOINT = os.Getenv("DATABOX_ZMQ_ENDPOINT")
@@ -22,17 +22,14 @@ var scanForNewPlugsChan = time.NewTicker(time.Second * 600).C
 var newPlugFoundChan = make(chan plug)
 
 //default subnet to scan can be set by plugs.SetScanSubNet
-var scan_sub_net = "192.168.1"
+var scan_sub_net = "192.168.0"
 
 //A list of known plugs
 var plugList = make(map[string]plug)
 
 func PlugHandler() {
 
-	tsc, err1 := databox.NewJSONTimeSeriesBlobClient(DATABOX_ZMQ_ENDPOINT, false)
-	if err1 != nil {
-		fmt.Println("Error creating zest client", err1)
-	}
+	tsc := databox.NewDefaultCoreStoreClient(DATABOX_ZMQ_ENDPOINT)
 
 	for {
 		select {
@@ -50,7 +47,7 @@ func PlugHandler() {
 	}
 }
 
-func updateReadings(tsc databox.JSONTimeSeriesBlob_0_3_0) {
+func updateReadings(tsc *databox.CoreStoreClient) {
 
 	resChan := make(chan *Reading)
 
@@ -73,7 +70,7 @@ func updateReadings(tsc databox.JSONTimeSeriesBlob_0_3_0) {
 			fmt.Println("Error unmarshing")
 		}
 		fmt.Println("Writing 1 Realtime::", p.ID, string(jsonString))
-		err = tsc.Write(macToID(res.System.Mac), jsonString)
+		err = tsc.TSBlobJSON.Write(macToID(res.System.Mac), jsonString)
 		if err != nil {
 			fmt.Println("Error StoreJSONWriteTS", err)
 		}
@@ -81,7 +78,7 @@ func updateReadings(tsc databox.JSONTimeSeriesBlob_0_3_0) {
 		jsonString, _ = json.Marshal(res.System.RelayState)
 		saveString := `{"state":` + string(jsonString) + `}`
 		fmt.Println("Writing 2 Realtime::", p.ID, saveString)
-		err = tsc.Write("state-"+macToID(res.System.Mac), []byte(saveString))
+		err = tsc.TSBlobJSON.Write("state-"+macToID(res.System.Mac), []byte(saveString))
 		if err != nil {
 			fmt.Println("Error StoreJSONWriteTS", err)
 		}
@@ -113,6 +110,7 @@ func scanForPlugs() {
 
 		go func(j int) {
 			ip := scan_sub_net + "." + strconv.Itoa(j)
+			fmt.Println("Scanning ", ip)
 			if isPlugAtIP(ip) == true && isPlugInList(ip) == false {
 				fmt.Println("Plug found at", ip)
 				res, _ := getPlugInfo(ip)
@@ -137,7 +135,7 @@ func scanForPlugs() {
 
 }
 
-func registerPlugWithDatabox(p plug, tsc databox.JSONTimeSeriesBlob_0_3_0) {
+func registerPlugWithDatabox(p plug, tsc *databox.CoreStoreClient) {
 
 	metadata := databox.DataSourceMetadata{
 		Description:    "TP-Link Wi-Fi Smart Plug HS100 power usage",
@@ -181,15 +179,15 @@ func registerPlugWithDatabox(p plug, tsc databox.JSONTimeSeriesBlob_0_3_0) {
 
 	//subscribe for events on the setState actuator
 	fmt.Println("Subscribing for update on ", "setState-"+p.ID)
-	actuationChan, err := tsc.Observe("setState-" + p.ID)
+	actuationChan, err := tsc.TSBlobJSON.Observe("setState-" + p.ID)
 	if err == nil {
-		go func(actuationRequestChan <-chan databox.JsonObserveResponse) {
+		go func(actuationRequestChan <-chan databox.ObserveResponse) {
 			for {
 				//blocks util request received
 				request := <-actuationRequestChan
-				fmt.Println("Got Actuation Request", string(request.Json[:]))
+				fmt.Println("Got Actuation Request", string(request.Data[:]))
 				ar := actuationRequest{}
-				err1 := json.Unmarshal(request.Json, &ar)
+				err1 := json.Unmarshal(request.Data, &ar)
 				if err == nil {
 					state := 1
 					if ar.Data == "off" {
@@ -251,13 +249,15 @@ func getPlugData(ip string) (*Reading, error) {
 }
 
 func isPlugAtIP(ip string) bool {
-	d := net.Dialer{Timeout: 50 * time.Millisecond}
+	d := net.Dialer{Timeout: 100 * time.Millisecond}
 	conn, err := d.Dial("tcp", ip+":9999")
+	defer conn.Close()
+
 	if err != nil {
+		fmt.Println("[isPlugAtIP] Error ", err)
 		return false
 	}
 
-	conn.Close()
 	return true
 }
 
