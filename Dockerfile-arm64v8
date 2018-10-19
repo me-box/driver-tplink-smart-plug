@@ -1,6 +1,5 @@
 FROM arm64v8/alpine as gobuild
 RUN apk update && apk add build-base pkgconfig go git libzmq zeromq-dev alpine-sdk libsodium-dev
-#RUN apk update && apk add pkgconfig build-base bash autoconf automake libtool gettext openrc git libzmq zeromq-dev mercurial
 
 ENV GOPATH /
 WORKDIR /
@@ -19,7 +18,9 @@ RUN apk update && apk add libzmq
 USER databox
 WORKDIR /
 COPY --from=gobuild /app .
-LABEL databox.type="app"
+COPY --from=gobuild /www/ /www/
+COPY --from=gobuild /tmpl/ /tmpl/
+LABEL databox.type="driver"
 EXPOSE 8080
 
 CMD ["./app"]
