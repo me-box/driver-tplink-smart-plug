@@ -23,6 +23,26 @@
 
 	"resource-requirements": {
 		"store": "core-store"
-	}
+	},
 
+	"provides": [
+		{
+			"data-source-type": "TP-Power-Usage",
+			"description": "TP-Link Wi-Fi Smart Plug HS100 power usage",
+			"store-type": "tsblob",
+			"schema": {}
+		},
+		{
+			"data-source-type": "TP-PowerState",
+			"description": "TP-Link Wi-Fi Smart Plug HS100 power state",
+			"store-type": "tsblob",
+			"schema": {}
+		},
+		{
+			"data-source-type": "TP-SetPowerState",
+			"description": "Set TP-Link Wi-Fi Smart Plug HS100 set power state",
+			"store-type": "tsblob",
+			"schema": {}
+		}
+	]
 }
