@@ -19,6 +19,11 @@ func getStatusEndpoint(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte("active\n"))
 }
 
+type UIInfo struct {
+	Plugs interface{}
+	Settings plugs.Settings
+}
+
 func displayUI(w http.ResponseWriter, req *http.Request) {
 	var templates *template.Template
 	templates, err := template.ParseFiles("tmpl/settings.tmpl")
@@ -28,7 +33,10 @@ func displayUI(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	s1 := templates.Lookup("settings.tmpl")
-	err = s1.Execute(w, plugs.GetPlugList())
+	err = s1.Execute(w, UIInfo{
+		Plugs: plugs.GetPlugList(),
+		Settings: plugs.GetSettings(),
+	})
 	if err != nil {
 		fmt.Println(err)
 		w.Write([]byte("error\n"))
@@ -70,6 +78,7 @@ func main() {
 	//start the plug handler it scans for new plugs and polls for data
 	go plugs.PlugHandler()
 
+	plugs.ReadSettings()
 	go plugs.ForceScan()
 
 	//

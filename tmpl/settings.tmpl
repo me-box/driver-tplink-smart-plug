@@ -17,7 +17,7 @@
         <div class="plugs">
         <h1>Available Plugs</h1>
         <hr>
-        {{ if .}} {{range .}}
+        {{ if .Plugs}} {{range .Plugs}}
         <div class="plug">
             <span class="name">{{.Name}}</span> 
             <span class="mac">{{.Mac}}</span> 
@@ -34,7 +34,7 @@
         <div class="form">
             <form id="add">
             <label for="ip">Enter sub net to scan (format xxx.xxx.xxx)</label>
-            <input type="text" name="plugSubNet" id="ip" value="192.168.0"><br><br>
+            <input type="text" name="plugSubNet" id="ip" value="{{if .Settings}}{{.Settings.ScanSubNet}}{{end}}"><br><br>
             <input id="addPlug" type="button" value="Scan">
             </form>
         </div>

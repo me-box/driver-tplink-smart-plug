@@ -27,9 +27,12 @@ var scan_sub_net = "192.168.0"
 //A list of known plugs
 var plugList = make(map[string]plug)
 
+var tsc = databox.NewDefaultCoreStoreClient(DATABOX_ZMQ_ENDPOINT)
+
 func PlugHandler() {
 
 	tsc := databox.NewDefaultCoreStoreClient(DATABOX_ZMQ_ENDPOINT)
+	ReadSettings()
 
 	for {
 		select {
@@ -217,6 +220,7 @@ func SetScanSubNet(subnet string) {
 	//TODO Validation
 
 	scan_sub_net = subnet
+	writeSettings()
 }
 
 // ForceScan will force a scan for new plugs
@@ -275,4 +279,49 @@ func isPlugInList(ip string) bool {
 
 func macToID(mac string) string {
 	return strings.Replace(mac, ":", "", -1)
+}
+
+const SETTINGS_DATASOURCEID = "TPLinkSettings"
+const SETTINGS_KEY = "settings"
+type Settings struct {
+	ScanSubNet string `json: "scan_sub_net"`
+}
+func GetSettings() Settings {
+	return Settings{
+		ScanSubNet: scan_sub_net,
+	}
+}
+
+func ReadSettings() {
+	var settings Settings
+	payload, err := tsc.KVJSON.Read(SETTINGS_DATASOURCEID, SETTINGS_KEY)
+	if err != nil {
+		fmt.Println("Error reading settings: "+err.Error())
+		return
+	}
+	err = json.Unmarshal(payload, &settings)
+	if err != nil {
+		fmt.Println("Error unmarshalling settings: "+err.Error())
+		return
+	}
+	if len( settings.ScanSubNet ) >0 {
+		scan_sub_net = settings.ScanSubNet
+		fmt.Println("Restore scan_sub_net to ", scan_sub_net)
+	}
+}
+
+func writeSettings() {
+	settings := Settings{
+		ScanSubNet:  scan_sub_net,
+	}
+	jsonData, err :=  json.Marshal(settings)
+	if err != nil {
+		fmt.Println("Error marshalling settings: "+err.Error())
+		return
+	}	
+	err = tsc.KVJSON.Write(SETTINGS_DATASOURCEID, SETTINGS_KEY, []byte(jsonData))
+	if err != nil {
+		fmt.Println("Error writing settings: "+err.Error())
+	}
+	fmt.Println("Wrote settings")
 }
