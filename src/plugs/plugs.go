@@ -11,7 +11,7 @@ import (
 	"time"
 
 	databox "github.com/me-box/lib-go-databox"
-	"github.com/sausheong/hs1xxplug"
+	"github.com/cgreenhalgh/hs1xxplug"
 )
 
 var DATABOX_ZMQ_ENDPOINT = os.Getenv("DATABOX_ZMQ_ENDPOINT")
@@ -40,9 +40,11 @@ func PlugHandler() {
 			fmt.Println("Scanning for plugs!!")
 			go scanForPlugs()
 		case p := <-newPlugFoundChan:
-			fmt.Println("New Plug Found!!")
-			plugList[p.IP] = p
-			go registerPlugWithDatabox(p, tsc)
+			if ( !isPlugInList( p.IP ) ) {
+				fmt.Println("New Plug Found!!")
+				plugList[p.IP] = p
+				go registerPlugWithDatabox(p, tsc)
+			}
 		}
 	}
 }
@@ -138,7 +140,7 @@ func scanForPlugs() {
 func registerPlugWithDatabox(p plug, tsc *databox.CoreStoreClient) {
 
 	metadata := databox.DataSourceMetadata{
-		Description:    "TP-Link Wi-Fi Smart Plug HS100 power usage",
+		Description:    fmt.Sprintf("TP-Link Wi-Fi Smart Plug HS100 '%s' (%s) power usage", p.Name, p.ID),
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
 		DataSourceType: "TP-Power-Usage",
@@ -152,7 +154,7 @@ func registerPlugWithDatabox(p plug, tsc *databox.CoreStoreClient) {
 	tsc.RegisterDatasource(metadata)
 
 	metadata = databox.DataSourceMetadata{
-		Description:    "TP-Link Wi-Fi Smart Plug HS100 power state",
+		Description:    fmt.Sprintf("TP-Link Wi-Fi Smart Plug HS100 '%s' (%s) power state", p.Name, p.ID),
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
 		DataSourceType: "TP-PowerState",
@@ -165,7 +167,7 @@ func registerPlugWithDatabox(p plug, tsc *databox.CoreStoreClient) {
 	tsc.RegisterDatasource(metadata)
 
 	metadata = databox.DataSourceMetadata{
-		Description:    "TP-Link Wi-Fi Smart Plug HS100 set power state",
+		Description:     fmt.Sprintf("TP-Link Wi-Fi Smart Plug HS100 '%s' (%s) set power state", p.Name, p.ID),
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
 		DataSourceType: "TP-SetPowerState",
@@ -183,9 +185,10 @@ func registerPlugWithDatabox(p plug, tsc *databox.CoreStoreClient) {
 	if err == nil {
 		go func(actuationRequestChan <-chan databox.ObserveResponse) {
 			for {
+				fmt.Println("Waiting for request on ", "setState-"+p.ID)
 				//blocks util request received
 				request := <-actuationRequestChan
-				fmt.Println("Got Actuation Request", string(request.Data[:]))
+				fmt.Println("Got Actuation Request", string(request.Data[:]), " on ", "setState-"+p.ID)
 				ar := actuationRequest{}
 				err1 := json.Unmarshal(request.Data, &ar)
 				if err == nil {
