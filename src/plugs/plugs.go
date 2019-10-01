@@ -11,7 +11,7 @@ import (
 	"time"
 
 	databox "github.com/me-box/lib-go-databox"
-	"github.com/sausheong/hs1xxplug"
+	"github.com/cgreenhalgh/hs1xxplug"
 )
 
 var DATABOX_ZMQ_ENDPOINT = os.Getenv("DATABOX_ZMQ_ENDPOINT")
@@ -27,9 +27,12 @@ var scan_sub_net = "192.168.0"
 //A list of known plugs
 var plugList = make(map[string]plug)
 
+var tsc = databox.NewDefaultCoreStoreClient(DATABOX_ZMQ_ENDPOINT)
+
 func PlugHandler() {
 
 	tsc := databox.NewDefaultCoreStoreClient(DATABOX_ZMQ_ENDPOINT)
+	ReadSettings()
 
 	for {
 		select {
@@ -40,9 +43,11 @@ func PlugHandler() {
 			fmt.Println("Scanning for plugs!!")
 			go scanForPlugs()
 		case p := <-newPlugFoundChan:
-			fmt.Println("New Plug Found!!")
-			plugList[p.IP] = p
-			go registerPlugWithDatabox(p, tsc)
+			if ( !isPlugInList( p.IP ) ) {
+				fmt.Println("New Plug Found!!")
+				plugList[p.IP] = p
+				go registerPlugWithDatabox(p, tsc)
+			}
 		}
 	}
 }
@@ -138,7 +143,7 @@ func scanForPlugs() {
 func registerPlugWithDatabox(p plug, tsc *databox.CoreStoreClient) {
 
 	metadata := databox.DataSourceMetadata{
-		Description:    "TP-Link Wi-Fi Smart Plug HS100 power usage",
+		Description:    fmt.Sprintf("TP-Link Wi-Fi Smart Plug HS100 '%s' (%s) power usage", p.Name, p.ID),
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
 		DataSourceType: "TP-Power-Usage",
@@ -152,7 +157,7 @@ func registerPlugWithDatabox(p plug, tsc *databox.CoreStoreClient) {
 	tsc.RegisterDatasource(metadata)
 
 	metadata = databox.DataSourceMetadata{
-		Description:    "TP-Link Wi-Fi Smart Plug HS100 power state",
+		Description:    fmt.Sprintf("TP-Link Wi-Fi Smart Plug HS100 '%s' (%s) power state", p.Name, p.ID),
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
 		DataSourceType: "TP-PowerState",
@@ -165,7 +170,7 @@ func registerPlugWithDatabox(p plug, tsc *databox.CoreStoreClient) {
 	tsc.RegisterDatasource(metadata)
 
 	metadata = databox.DataSourceMetadata{
-		Description:    "TP-Link Wi-Fi Smart Plug HS100 set power state",
+		Description:     fmt.Sprintf("TP-Link Wi-Fi Smart Plug HS100 '%s' (%s) set power state", p.Name, p.ID),
 		ContentType:    "application/json",
 		Vendor:         "TP-Link",
 		DataSourceType: "TP-SetPowerState",
@@ -183,9 +188,10 @@ func registerPlugWithDatabox(p plug, tsc *databox.CoreStoreClient) {
 	if err == nil {
 		go func(actuationRequestChan <-chan databox.ObserveResponse) {
 			for {
+				fmt.Println("Waiting for request on ", "setState-"+p.ID)
 				//blocks util request received
 				request := <-actuationRequestChan
-				fmt.Println("Got Actuation Request", string(request.Data[:]))
+				fmt.Println("Got Actuation Request", string(request.Data[:]), " on ", "setState-"+p.ID)
 				ar := actuationRequest{}
 				err1 := json.Unmarshal(request.Data, &ar)
 				if err == nil {
@@ -214,6 +220,7 @@ func SetScanSubNet(subnet string) {
 	//TODO Validation
 
 	scan_sub_net = subnet
+	writeSettings()
 }
 
 // ForceScan will force a scan for new plugs
@@ -272,4 +279,49 @@ func isPlugInList(ip string) bool {
 
 func macToID(mac string) string {
 	return strings.Replace(mac, ":", "", -1)
+}
+
+const SETTINGS_DATASOURCEID = "TPLinkSettings"
+const SETTINGS_KEY = "settings"
+type Settings struct {
+	ScanSubNet string `json: "scan_sub_net"`
+}
+func GetSettings() Settings {
+	return Settings{
+		ScanSubNet: scan_sub_net,
+	}
+}
+
+func ReadSettings() {
+	var settings Settings
+	payload, err := tsc.KVJSON.Read(SETTINGS_DATASOURCEID, SETTINGS_KEY)
+	if err != nil {
+		fmt.Println("Error reading settings: "+err.Error())
+		return
+	}
+	err = json.Unmarshal(payload, &settings)
+	if err != nil {
+		fmt.Println("Error unmarshalling settings: "+err.Error())
+		return
+	}
+	if len( settings.ScanSubNet ) >0 {
+		scan_sub_net = settings.ScanSubNet
+		fmt.Println("Restore scan_sub_net to ", scan_sub_net)
+	}
+}
+
+func writeSettings() {
+	settings := Settings{
+		ScanSubNet:  scan_sub_net,
+	}
+	jsonData, err :=  json.Marshal(settings)
+	if err != nil {
+		fmt.Println("Error marshalling settings: "+err.Error())
+		return
+	}	
+	err = tsc.KVJSON.Write(SETTINGS_DATASOURCEID, SETTINGS_KEY, []byte(jsonData))
+	if err != nil {
+		fmt.Println("Error writing settings: "+err.Error())
+	}
+	fmt.Println("Wrote settings")
 }
